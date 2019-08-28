@@ -105,4 +105,4 @@ myenv/
 .vscode/
 
 .pytest_cache
-
+outdir/
