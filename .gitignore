@@ -104,3 +104,5 @@ myenv/
 # vscode settings
 .vscode/
 
+.pytest_cache
+
