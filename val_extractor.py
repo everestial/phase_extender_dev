@@ -34,38 +34,32 @@ def args_to_val(args):
           'transition probabilities' % (num_of_hets))
 
     # add argument for max sum vs. max product of likelyhood estimates before calculating the LOD-score
-    maxed_as = args.culLH   # default, maxed_as = "*"
-    if maxed_as == 'maxSum':
-        max_is = 'max sum'
-        maxed_as = '+'
-    elif maxed_as == 'maxPd':
-        max_is = 'max product'
-        maxed_as = '*'
+    maxed_as = '+' if args.culLH in ('+', 'maxSum') else '*'  # default, maxed_as = "*"
+    # if maxed_as == 'maxSum':
+    #     max_is = 'max sum'
+    #     maxed_as = '+'
+    # elif maxed_as == 'maxPd':
+    #     max_is = 'max product'
+    #     maxed_as = '*'
     print('  - using "%s" to estimate the cumulative maximum likelyhood of each haplotype configuration '
-          'between two consecutive blocks ' % (max_is))
+          'between two consecutive blocks ' % (maxed_as))
 
 
     ##set the required variables related to bed file if bed file is given.
     # use provided bed file to limit phase extension on bed regions/boundries
-    if args.bed != "":      # default, use_bed = "no"
-        use_bed = 'yes'
-        bed_file = args.bed
+    bed_file = args.bed
+    if bed_file:
         print('  - using the bed file "%s" to limit phase extension at the bed boundries '%(bed_file))
     else:
-        use_bed = 'no'
-        bed_file = None
         print('  - no bed file is given.')
 
 
     # if a haplotype panel is provided then the reference panel can be used as backbone or ..
       # .. meaningful data to aid in phase extension
-    if args.refHap != "":  # default, use_refHap = "no"
-        use_refhap = 'yes'
-        refhap = args.refHap
+    refhap = args.refHap
+    if refhap:
         print('  - using the reference haplotype panel "%s" ' %(refhap))
     else:
-        use_refhap = 'no'
-        refhap = None
         print('  - no reference haplotype panel is provided ')
 
 
@@ -103,6 +97,6 @@ def args_to_val(args):
     elif args.addMissingSites != 'yes':
         addmissingsites = 'no'
 
-    return soi, outputdir, nt, input_file, lods_cut_off, snp_threshold, num_of_hets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites
+    return soi, outputdir, nt, input_file, lods_cut_off, snp_threshold, num_of_hets, maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites
 
 

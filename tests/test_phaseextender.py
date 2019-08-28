@@ -10,28 +10,22 @@ from phaser import phase_converter
 # initialize the default parameters
 soi ='ms02g'
 addmissingsites='no'
-bed=''
-use_bed = 'no'
 bed_file = None
-culLH='maxPd'
-max_is = 'max product'
 maxed_as = '*'
 hapstats='no'
 input_file='tests/inputs/eg1/input_haplotype_file.txt'
 lods=10
 nt=2
 numHets=40
-refHap=''
 snp_threshold=3
 use_sample='all'
 writelod='no'
-use_refhap = 'no'
 refhap = None
 
 
 def test_first_example():
     with tempfile.TemporaryDirectory() as tmpdir1:
-        phase_converter(soi, replace_mkdir(tmpdir1), nt, input_file, lods, snp_threshold, numHets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites )
+        phase_converter(soi, replace_mkdir(tmpdir1), nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
         assert is_same('tests/outdir/eg1out/', tmpdir1) is True
     # assert comparison.diff_files is None and  comparison.right_only is None and comparison.left_only is None, **kwargs
 
@@ -39,7 +33,7 @@ def test_first_example():
 def test_second_example():
     writelod= 'yes'
     with tempfile.TemporaryDirectory() as temp_dir:
-        phase_converter(soi, temp_dir, nt, input_file, lods, snp_threshold, numHets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites )
+        phase_converter(soi, temp_dir, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
         assert is_same('tests/outdir/eg2out', temp_dir ) is True
 
 
@@ -50,7 +44,7 @@ def test_third_example():
     numHets= 25
     input_file='tests/inputs/eg2/haplotype_file_test02.txt'
     with tempfile.TemporaryDirectory() as temp_dir2:
-            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,'yes', writelod, addmissingsites )
+            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,'yes', writelod, addmissingsites )
             assert is_same('tests/outdir/eg3out', temp_dir2 ) is True
 
 def test_fourth_example():
@@ -60,7 +54,7 @@ def test_fourth_example():
     use_sample = 'ms01e,ms02g,MA605,Sp76'
     input_file='tests/inputs/eg2/haplotype_file_test02.txt'
     with tempfile.TemporaryDirectory() as temp_dir2:
-            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites )
+            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
             assert is_same('tests/outdir/eg4out', temp_dir2 ) is True
 
 def test_fifth_example():
@@ -70,12 +64,10 @@ def test_fifth_example():
     use_sample = 'all'
     input_file ='tests/inputs/eg2/haplotype_file_test02.txt'
     refhap = 'tests/inputs/eg2/refPanel_lyrata_test02.txt'
-    use_bed = 'yes'
-    use_refhap = 'yes'
     bed_file = 'tests/inputs/eg2/bed_boundries.bed'
     hapstats = 'yes'
     with tempfile.TemporaryDirectory() as temp_dir3:
-            phase_converter(soi, temp_dir3, nt, input_file, lods, snp_threshold, numHets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites )
+            phase_converter(soi, temp_dir3, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
             assert is_same('tests/outdir/eg5out', temp_dir3 ) is True
     
 

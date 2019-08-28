@@ -20,7 +20,7 @@ from utils import accumulate, current_mem_usage
 
 
 
-def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold, num_of_hets, max_is, maxed_as, use_bed, bed_file, use_refhap, refhap, use_sample ,hapstats, writelod, addmissingsites ):
+def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold, num_of_hets, maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites):
 
     '''Assign the number of process - this is the optimal position to start multiprocessing ! 
        **note: number of process should be declared after all the global variables are declared,
@@ -40,7 +40,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
             - these data will be used downstream after reading the haplotype file as "good_data" '''
 
         # check and load bed file
-        if use_bed == 'yes':
+        if bed_file:
             ''' we want to extend phase state only within bed boundries.
                 - so, we merge the "input haplotype-file"  with "bed-file". '''
             my_bed = pd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
@@ -51,7 +51,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
             print('# Genomic bed file is not provided ... ')
      
         # check and load "haplotype reference panel"
-        if use_refhap == 'yes':
+        if refhap:
             hap_panel = pd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
             hap_panel['CHROM'] = hap_panel['CHROM'].astype(str)  # setting CHROM as string type data
 
@@ -165,7 +165,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
 
         ''' Step 02 - A (add on - i) ** merge reference haplotype if provided '''
         print()
-        if use_refhap == "yes":
+        if refhap:
             # update the "good_data" (i.e, haplotype data)
             print('Merging input haplotype data with data from the hap-reference panel')
 
@@ -186,14 +186,14 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
         ''' Step 02 - A (add on - ii) ** merge bed-regions if provided to limit phase extension
                                          and group the data by "contig". '''
         print()
-        if use_bed == 'no':
+        if not bed_file:
             # group data only at "contig" level, keep the sort as it is
             print('# No bed file is given ... ')
             print('  - So, grouping the haplotype file only by chromosome (contig)')
 
             good_data_by_group = good_data.groupby('CHROM', sort=False)
 
-        elif use_bed == 'yes':
+        elif bed_file:
             print('# Merging the bed boundries from "%s" with the input haplotype file ... "%s" '
                   % (bed_file, input_data.name))
 
@@ -265,7 +265,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
         del initial_haplotype, good_data, input_file, good_data_by_group, samples, input_data, data_by_chr
 
     ''' Now, pipe the procedure to next function for multiprocessing (i.e Step 02 - C) '''
-    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, use_bed, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod)
+    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod)
 
     # remove the chunked data folder ** (this can be retained if need be)
     #shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
@@ -273,7 +273,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     print('End :)')
 
 
-def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, use_bed, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod):
+def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod):
 
     print()
     ''' Step 02 - C: Start, multiprocessing/threading - process each contig separately. '''
@@ -290,7 +290,7 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, use_be
     ## ** to do: Add "sort" method in "file_path" to read data in order. This way we can save ..
       # time/memory while doing sorting within pandas dataframe.
       # This sort method is available in "phase-Stitcher"
-    partial_group = partial(groupby_and_read, use_bed =use_bed, soi = soi,snp_threshold = snp_threshold,sample_list= sample_list, num_of_hets= num_of_hets, lods_cut_off= lods_cut_off, maxed_as= maxed_as, writelod = writelod )
+    partial_group = partial(groupby_and_read, bed_file =bed_file, soi = soi,snp_threshold = snp_threshold,sample_list= sample_list, num_of_hets= num_of_hets, lods_cut_off= lods_cut_off, maxed_as= maxed_as, writelod = writelod )
 
     result = pool.imap(partial_group, file_path)
     # result = pool.starmap( groupby_and_read, *(file_path, use_bed, soi, snp_threshold, sample_list, num_of_hets, lods_cut_off, maxed_as) )
@@ -354,7 +354,7 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, use_be
 
 
 
-def groupby_and_read(file_path, use_bed, soi, snp_threshold, sample_list, num_of_hets, lods_cut_off, maxed_as, writelod):
+def groupby_and_read(file_path, bed_file, soi, snp_threshold, sample_list, num_of_hets, lods_cut_off, maxed_as, writelod):
     good_data_by_contig = open(file_path[0], 'r')
     chr_ = good_data_by_contig.name.split(':')[-1]
     sample_list = file_path[1]
@@ -370,7 +370,7 @@ def groupby_and_read(file_path, use_bed, soi, snp_threshold, sample_list, num_of
 
 
     # if phase extension is to be limited to provided bed-regions
-    if use_bed == 'yes':
+    if bed_file:
         # start another level of grouping of the data by bed interval key
         # (start-end of the bed is used as unique key for grouping)
         print('Splitting the contig by bed regions')

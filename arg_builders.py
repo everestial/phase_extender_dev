@@ -30,7 +30,7 @@ def get_args(parser):
                              "This file should also contain 'PI' and 'PG_al' values for each "
                              "sample in that haplotype reference panel."
                              "default: empty ",
-                        default='', required=False)
+                        default=None, required=False)
 
     parser.add_argument("--useSample",
                         help="list of samples -> "
@@ -50,7 +50,7 @@ def get_args(parser):
                              "This is useful to limit haplotype extension only within certain "
                              "regions, like - within genes, exons, introns, QTL, etc. "
                              "default: empty ",
-                        default= '', required=False)
+                        default= None, required=False)
 
     parser.add_argument("--snpTh",
                         help="snp threshold -> "
