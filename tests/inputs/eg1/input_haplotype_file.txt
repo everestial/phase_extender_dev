@@ -1,0 +1,9 @@
+CHROM	POS	REF	all-alleles	ms01e:PI	ms01e:PG_al	ms02g:PI	ms02g:PG_al	ms03g:PI	ms03g:PG_al	ms04h:PI	ms04h:PG_al	ms05h:PI	ms05h:PG_al	ms06h:PI	ms06h:PG_al
+2	15881764	.	.	4	C|T	6	C|T	7	T|T	7	T|T	7	C|T	7	C|T
+2	15881767	.	.	4	C|C	6	T|C	7	C|C	7	C|C	7	T|C	7	C|C
+2	15881989	.	.	4	C|C	6	A|C	7	C|C	7	C|C	7	A|T	7	A|C
+2	15882091	.	.	4	G|T	6	G|T	7	T|A	7	A|A	7	A|T	7	A|C
+2	15882451	.	.	4	C|T	4	T|C	7	T|T	7	T|T	7	T|T	7	C|A
+2	15882454	.	.	4	C|T	4	T|C	7	T|T	7	T|T	7	C|T	7	C|T
+2	15882493	.	.	4	C|T	4	T|C	7	T|T	7	T|T	7	C|T	7	C|T
+2	15882505	.	.	4	A|T	4	T|A	7	T|T	7	T|T	7	A|C	7	A|T 
