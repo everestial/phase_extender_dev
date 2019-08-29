@@ -269,7 +269,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod)
 
     # remove the chunked data folder ** (this can be retained if need be)
-    #shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
+    shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
 
     print('End :)')
 

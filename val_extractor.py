@@ -35,12 +35,6 @@ def args_to_val(args):
 
     # add argument for max sum vs. max product of likelyhood estimates before calculating the LOD-score
     maxed_as = '+' if args.culLH in ('+', 'maxSum') else '*'  # default, maxed_as = "*"
-    # if maxed_as == 'maxSum':
-    #     max_is = 'max sum'
-    #     maxed_as = '+'
-    # elif maxed_as == 'maxPd':
-    #     max_is = 'max product'
-    #     maxed_as = '*'
     print('  - using "%s" to estimate the cumulative maximum likelyhood of each haplotype configuration '
           'between two consecutive blocks ' % (maxed_as))
 
