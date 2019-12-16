@@ -10,9 +10,11 @@ def is_same(dir1, dir2):
     compared = filecmp.dircmp(dir1, dir2)
     if (compared.left_only or compared.right_only or compared.diff_files
         or compared.funny_files):
-        print(compared.left_only)
-        print(compared.right_only)
-        print(compared.diff_files)
+        print(f'Same files: {compared.same_files}')
+        print('Diff in files')
+        print(f'Present in left only: {compared.left_only}')
+        print(f'Present in right only: {compared.right_only}')
+        print(f'Differ in file: {compared.diff_files}')
         return False
     for subdir in compared.common_dirs:
         if not is_same(os.path.join(dir1, subdir), os.path.join(dir2, subdir)):
