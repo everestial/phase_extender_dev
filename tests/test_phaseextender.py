@@ -3,9 +3,9 @@ import os
 import shutil
 import tempfile
 
-import pytest
 
 from phaser import phase_converter
+from tests.tutils import replace_mkdir, is_same
 
 # initialize the default parameters
 soi ='ms02g'
@@ -40,12 +40,12 @@ def test_second_example():
 
 def test_third_example():
     lods= 10
-    nt= 2
+    nt= 1
     numHets= 25
     input_file='tests/inputs/eg2/haplotype_file_test02.txt'
-    with tempfile.TemporaryDirectory() as temp_dir2:
-            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,'yes', writelod, addmissingsites )
-            assert is_same('tests/outdir/eg3out', temp_dir2 ) is True
+    with tempfile.TemporaryDirectory() as temp_dir1:
+        phase_converter(soi, temp_dir1, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,'yes', writelod, addmissingsites )
+        assert is_same('tests/outdir/eg3out', temp_dir1 ) is True
 
 def test_fourth_example():
     lods= 5
@@ -54,8 +54,8 @@ def test_fourth_example():
     use_sample = 'ms01e,ms02g,MA605,Sp76'
     input_file='tests/inputs/eg2/haplotype_file_test02.txt'
     with tempfile.TemporaryDirectory() as temp_dir2:
-            phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
-            assert is_same('tests/outdir/eg4out', temp_dir2 ) is True
+        phase_converter(soi, temp_dir2, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
+        assert is_same('tests/outdir/eg4out', temp_dir2 ) is True
 
 def test_fifth_example():
     lods= 5
@@ -67,9 +67,9 @@ def test_fifth_example():
     bed_file = 'tests/inputs/eg2/bed_boundries.bed'
     hapstats = 'yes'
     with tempfile.TemporaryDirectory() as temp_dir3:
-            phase_converter(soi, temp_dir3, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
-            assert is_same('tests/outdir/eg5out', temp_dir3 ) is True
-    
+        phase_converter(soi, temp_dir3, nt, input_file, lods, snp_threshold, numHets,  maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites )
+        assert is_same('tests/outdir/eg5out', temp_dir3 ) is True
+
 
 
 def replace_mkdir(dir_name):
@@ -79,19 +79,3 @@ def replace_mkdir(dir_name):
     return dir_name
 
 
-def is_same(dir1, dir2):
-    """
-    Compare two directory trees content.
-    Return False if they differ, True is they are the same.
-    """
-    compared = filecmp.dircmp(dir1, dir2)
-    if (compared.left_only or compared.right_only or compared.diff_files
-        or compared.funny_files):
-        print(compared.left_only)
-        print(compared.right_only)
-        print(compared.diff_files)
-        return False
-    for subdir in compared.common_dirs:
-        if not is_same(os.path.join(dir1, subdir), os.path.join(dir2, subdir)):
-            return False
-    return True 
