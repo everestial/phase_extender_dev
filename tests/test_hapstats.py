@@ -4,7 +4,7 @@ import filecmp
 import tempfile
 import pandas as pd
 from hapstats import compute_haplotype_stats
-from tests.tutils import replace_mkdir, is_same
+from tutils import replace_mkdir, is_same
 
 
 

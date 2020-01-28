@@ -5,7 +5,7 @@ import tempfile
 
 
 from phaser import phase_converter
-from tests.tutils import replace_mkdir, is_same
+from tutils import replace_mkdir, is_same
 
 # initialize the default parameters
 soi ='ms02g'
