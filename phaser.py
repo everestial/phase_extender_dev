@@ -33,237 +33,479 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     # b) another output file contains the lines that have missing data for sample of interest
 
     ''' Step 01 - A: read the input haplotype file and prepare output files '''
-    with open(input_file) as input_data, \
-            open(outputdir + '/' +"missingdata_" + soi + ".txt", 'w') as missing_data:
+    # with open(input_file) as input_data, \
+    #         open(outputdir + '/' +"missingdata_" + soi + ".txt", 'w') as missing_data:
 
-        ''' Step 01 - B: check if "bed file" and "haplotype reference" file are given.
-            - then read the "bed file" and "haplotype file" into the memory.
-            - these data will be used downstream after reading the haplotype file as "good_data" '''
+        # ''' Step 01 - B: check if "bed file" and "haplotype reference" file are given.
+        #     - then read the "bed file" and "haplotype file" into the memory.
+        #     - these data will be used downstream after reading the haplotype file as "good_data" '''
 
-        # check and load bed file
-        if bed_file:
-            ''' we want to extend phase state only within bed boundries.
-                - so, we merge the "input haplotype-file"  with "bed-file". '''
-            my_bed = pd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
-            my_bed['CHROM'] = my_bed['CHROM'].astype(str)  # setting CHROM column as string type ..
-            #  this is necessary because there has been problem with groupby operations downstream
+        # # check and load bed file
+        # if bed_file:
+        #     ''' we want to extend phase state only within bed boundries.
+        #         - so, we merge the "input haplotype-file"  with "bed-file". '''
+        #     my_bed = pd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
+        #     my_bed['CHROM'] = my_bed['CHROM'].astype(str)  # setting CHROM column as string type ..
+        #     #  this is necessary because there has been problem with groupby operations downstream
 
-        else:
-            print('# Genomic bed file is not provided ... ')
+        # else:
+        #     print('# Genomic bed file is not provided ... ')
      
-        # check and load "haplotype reference panel"
-        if refhap:
-            hap_panel = pd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
-            hap_panel['CHROM'] = hap_panel['CHROM'].astype(str)  # setting CHROM as string type data
+        # # check and load "haplotype reference panel"
+        # if refhap:
+        #     hap_panel = pd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
+        #     hap_panel['CHROM'] = hap_panel['CHROM'].astype(str)  # setting CHROM as string type data
 
-            # also find the sample in refHap panel
-            hap_panel_samples = find_samples(list(hap_panel.keys()))
+        #     # also find the sample in refHap panel
+        #     hap_panel_samples = find_samples(list(hap_panel.keys()))
 
-        else:
-            print()
-            hap_panel_samples = []
-            print('# Haplotype reference panel is not provided ... ')
-            print('  So, phase extension will run using the samples available in the input haplotype file. ')
-
-
-        ''' Step 01 - C: from the input file
-        1) For the soi, remove/store the lines that have PI and allele value as empty (.) as "missing_data"
-        2) Rest of the data should have meaningful data for soi, and we store it as "good_data".
-           - also prepare the list of samples that will be used in phase extension.
-        3) Prepare a list of samples to use while computing transition matrix.
+        # else:
+        #     print()
+        #     hap_panel_samples = []
+        #     print('# Haplotype reference panel is not provided ... ')
+        #     print('  So, phase extension will run using the samples available in the input haplotype file. ')
 
 
-        4) ** move this else where: write the first K1 block - after this we will only need to update K2 block values,
-           when reading k1,v1 and k2,v2 consecutive blocks as pairs. '''
-
-        ''' store the good (meaningful) portion of the input_data as variable (Good_Data).
-        But, write the missing data as file (** but can also be stored in a variable) '''
-        good_data = ''   # empty string
-
-        for lines in input_data:
-            if lines.startswith('CHROM'):
-                head = lines.rstrip('\n').split('\t')
-
-                # find the index positions of sample-of-interest's PI and PG_allele
-                soi_PI_index = head.index(soi + ':PI')
-                soi_PG_index = head.index(soi + ':PG_al')
+        # ''' Step 01 - C: from the input file
+        # 1) For the soi, remove/store the lines that have PI and allele value as empty (.) as "missing_data"
+        # 2) Rest of the data should have meaningful data for soi, and we store it as "good_data".
+        #    - also prepare the list of samples that will be used in phase extension.
+        # 3) Prepare a list of samples to use while computing transition matrix.
 
 
-                # update the heading for good_data and missing_data
-                good_data += '\t'.join(head) + '\n'
-                missing_data.write('\t'.join(head) + '\n')
+        # 4) ** move this else where: write the first K1 block - after this we will only need to update K2 block values,
+        #    when reading k1,v1 and k2,v2 consecutive blocks as pairs. '''
 
-                continue
+        # ''' store the good (meaningful) portion of the input_data as variable (Good_Data).
+        # But, write the missing data as file (** but can also be stored in a variable) '''
+        # good_data = ''   # empty string
 
+        # for lines in input_data:
+        #     if lines.startswith('CHROM'):
+        #         head = lines.rstrip('\n').split('\t')
 
-            ''' Now, for the soi if PI and PG are missing (i.e, represented by '.') write it into
-            "missing_file.txt", else store it as "good_data" '''
-            lines = lines.rstrip('\n').split('\t')
-            if len(lines) <= 1:  # to control for the last ('\n') line if present
-                break
-
-
-            # separate the lines with missing data (no "PI" or has "PI" but ambiguous SNP like "*")
-            if lines[soi_PI_index] == '.' or '.' in lines[soi_PG_index]:
-                missing_data.write('\t'.join(lines) + '\n')
-
-            # write the good part of the RB-phased VCF
-            elif lines[soi_PI_index] != '.':
-                good_data += '\t'.join(lines) + '\n'
-
-            # ** for future: this above code can be modified to include non-phased SNP variants.
-            # - just remove "lines[soi:PG_index]" to put SNPs with no PI index inside "good_data"
-
-        print()
-        print('# Filtered the lines that have data missing for sample "%s"; check the file "%s" '
-              %(soi, missing_data.name))
-        print('  - Loaded read-backphased variants onto the memory')
+        #         # find the index positions of sample-of-interest's PI and PG_allele
+        #         soi_PI_index = head.index(soi + ':PI')
+        #         soi_PG_index = head.index(soi + ':PG_al')
 
 
-        ''' Step 01 - D: Prepare the samples to use the data from. '''
-        ''' Prepare a list of tuples of samples (PI, PG_al) from the input data and update it as needed.
-            - **Note: the sample list should always include the soi (sample of interest)
-                - this is done to include observation from soi rather than introducing a pseudo count
-                  when transition is missing from some observation (n to m). '''
-        samples = head.copy()
-        sample_list = find_samples(samples)  # returns data from "input haplotype file"
+        #         # update the heading for good_data and missing_data
+        #         good_data += '\t'.join(head) + '\n'
+        #         missing_data.write('\t'.join(head) + '\n')
 
-        # update the names in "sample_list" if other samples are requested by the user:
-        if use_sample == "" or use_sample == 'input':
-            sample_list = sample_list
-
-        # use all the samples from hapRefPanel and input samples
-        elif use_sample == 'all':
-            sample_list = sample_list + hap_panel_samples
-
-        elif use_sample == 'refHap':
-            sample_list = hap_panel_samples + [(soi + ":PI", soi +":PG_al")]  # add the self sample name to account ..
-            # .. for missing observations instead of using pseudo count
-
-        # if specific select samples are of interest, split the sample names and then prepare ..
-        # .. the list of tuples of sample "PI" and "PG_al"
-        else:
-            sample_list = use_sample.split(',')
-            sample_list = [((x + ':PI'), (x + ':PG_al')) for x in sample_list] + \
-                          [(soi + ":PI", soi +":PG_al")]
+        #         continue
 
 
+        #     ''' Now, for the soi if PI and PG are missing (i.e, represented by '.') write it into
+        #     "missing_file.txt", else store it as "good_data" '''
+        #     lines = lines.rstrip('\n').split('\t')
+        #     if len(lines) <= 1:  # to control for the last ('\n') line if present
+        #         break
 
-        ''' Step 02: pipe the data into "pandas", then:
-            A) group the data by "contig" which helps in multiprocessing/threading.
-              A - optional: if "bed regions" are given add the bed_regions boundries as "start_end"
-            B) within each group, group again by "PI keys" of soi and then sort by
-               minimum "POS" value for each "PI key"
-            C) then pipe the data within each "PI key" for phase-extension computation.'''
 
-        ''' Step 02 - A : read good part of the data into "pandas" as dataframe.'''
-        good_data = pd.read_table(StringIO(good_data), delimiter='\t')
-        good_data['CHROM'] = good_data['CHROM'].astype(str)  # setting CHROM as string type data # this is necessary
-        # to maintain proper groupby downstream
+        #     # separate the lines with missing data (no "PI" or has "PI" but ambiguous SNP like "*")
+        #     if lines[soi_PI_index] == '.' or '.' in lines[soi_PG_index]:
+        #         missing_data.write('\t'.join(lines) + '\n')
+
+        #     # write the good part of the RB-phased VCF
+        #     elif lines[soi_PI_index] != '.':
+        #         good_data += '\t'.join(lines) + '\n'
+
+        #     # ** for future: this above code can be modified to include non-phased SNP variants.
+        #     # - just remove "lines[soi:PG_index]" to put SNPs with no PI index inside "good_data"
+
+        # print()
+        # print('# Filtered the lines that have data missing for sample "%s"; check the file "%s" '
+        #       %(soi, missing_data.name))
+        # print('  - Loaded read-backphased variants onto the memory')
+
+
+        # ''' Step 01 - D: Prepare the samples to use the data from. '''
+        # ''' Prepare a list of tuples of samples (PI, PG_al) from the input data and update it as needed.
+        #     - **Note: the sample list should always include the soi (sample of interest)
+        #         - this is done to include observation from soi rather than introducing a pseudo count
+        #           when transition is missing from some observation (n to m). '''
+        # samples = head.copy()
+        # sample_list = find_samples(samples)  # returns data from "input haplotype file"
+
+        # # update the names in "sample_list" if other samples are requested by the user:
+        # if use_sample == "" or use_sample == 'input':
+        #     sample_list = sample_list
+
+        # # use all the samples from hapRefPanel and input samples
+        # elif use_sample == 'all':
+        #     sample_list = sample_list + hap_panel_samples
+
+        # elif use_sample == 'refHap':
+        #     sample_list = hap_panel_samples + [(soi + ":PI", soi +":PG_al")]  # add the self sample name to account ..
+        #     # .. for missing observations instead of using pseudo count
+
+        # # if specific select samples are of interest, split the sample names and then prepare ..
+        # # .. the list of tuples of sample "PI" and "PG_al"
+        # else:
+        #     sample_list = use_sample.split(',')
+        #     sample_list = [((x + ':PI'), (x + ':PG_al')) for x in sample_list] + \
+        #                   [(soi + ":PI", soi +":PG_al")]
+
+
+
+        # ''' Step 02: pipe the data into "pandas", then:
+        #     A) group the data by "contig" which helps in multiprocessing/threading.
+        #       A - optional: if "bed regions" are given add the bed_regions boundries as "start_end"
+        #     B) within each group, group again by "PI keys" of soi and then sort by
+        #        minimum "POS" value for each "PI key"
+        #     C) then pipe the data within each "PI key" for phase-extension computation.'''
+
+        # ''' Step 02 - A : read good part of the data into "pandas" as dataframe.'''
+        # good_data = pd.read_table(StringIO(good_data), delimiter='\t')
+        # good_data['CHROM'] = good_data['CHROM'].astype(str)  # setting CHROM as string type data # this is necessary
+        # # to maintain proper groupby downstream
+
+        # # ** only if "good_data" is desired as text output
+        # #pd.DataFrame.to_csv(good_data, 'good_data_test.txt', sep='\t', header=True, index=False)
+
+        # ''' Step 02 - A (add on - i) ** merge reference haplotype if provided '''
+        # print()
+        # if refhap:
+        #     # update the "good_data" (i.e, haplotype data)
+        #     print('Merging input haplotype data with data from the hap-reference panel')
+
+        #     good_data = pd.merge(good_data, hap_panel, on=['CHROM', 'POS'],
+        #                              how='left').fillna('.')
+        #     good_data.sort_values(by=['CHROM', 'POS'], inplace=True)
+
+        #     # if haplotype and reference panel merged lines are desired
+        #     #pd.DataFrame.to_csv(good_data, 'hap_and_refPanel_merged.txt', sep='\t',
+        #                         #header=True, index=False)
+        #     del hap_panel
+
+        # else:
+        #     print('# Haplotype reference panel is not provided....\n'
+        #           '  - Only using the samples in the input ("%s") data.' %(input_data.name))
+
+
+        # ''' Step 02 - A (add on - ii) ** merge bed-regions if provided to limit phase extension
+        #                                  and group the data by "contig". '''
+        # print()
+        # if not bed_file:
+        #     # group data only at "contig" level, keep the sort as it is
+        #     print('# No bed file is given ... ')
+        #     print('  - So, grouping the haplotype file only by chromosome (contig)')
+
+        #     good_data_by_group = good_data.groupby('CHROM', sort=False)
+
+        # elif bed_file:
+        #     print('# Merging the bed boundries from "%s" with the input haplotype file ... "%s" '
+        #           % (bed_file, input_data.name))
+
+        #     # merge/intersect the "bed regions" and "haplotype file"
+        #     # then groupy "contig" and "bed regions" by passing it to function "merge_hap_with_bed()"
+        #     good_data_by_group = merge_hap_with_bed(my_bed, good_data)
+        #     # ** for future: we can also run multiprocessing while merging "hap file" with "bed regions"
+        #     del my_bed
+
+
+        # ''' Step 02 - A (**add on - iii):
+        #     - Write the initial haplotype data.
+        #     - Compute the statistics of the initial phased file for SOI if required '''
+
+        # print()
+        # print('# Writing initial haplotype for sample "%s" in the file "%s" '
+        #       %(soi, 'initial_haplotype_' + soi + '.txt'))
+
+        # # select the colums of interest
+        # initial_haplotype = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]. \
+        #     sort_values(by=['CHROM', 'POS'])
+
+        # # write this initial haplotype to a file
+        # pd.DataFrame.to_csv(initial_haplotype, outputdir + '/' + 'initial_haplotype_' + soi + '.txt',
+        #                     sep='\t', header=True, index=False)
+
+
+        # if hapstats == 'yes':
+        #     print('  - Computing the descriptive statistics of the haplotype data before phase extension')
+
+        #     # pipe the data to a function to compute haplotype statistics
+        #     compute_haplotype_stats(initial_haplotype, soi, 'initial', outputdir)
+        # else:
+        #     print('  - Proceeding to phase-extension without preparing descriptive statistics of initial haplotype state.')
+
+
+
+        # ''' Step 02 - B: - Split the data (grouped by chromosome (contig) values.
+        #                  - Store data in disk or memory.
+        #                  - Multiprocess each chunks separately '''
+        # print()
+        # print('# Starting multiprocessing using "%i" processes ' %(nt))
+
+        # # ** new method: create a folder to store the data to disk (rather than memory)
+        # # ** (see old method for comparison)
+        # if os.path.exists('chunked_Data_' + soi):
+        #     shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
+        # os.makedirs('chunked_Data_' + soi + '/', exist_ok=True)
+
+
+        # ''' Step 02 - B (i)'''
+
+        # ################### old method - ** if possible reuse this method in future.
+        # # take the large dataframe that is grouped by contig and ..
+        # # .. keep chunks of dataframes as as OrderedDict(list of (keys, Dataframe object))
+        # #df_list = collections.OrderedDict()
+        # ########################################
+
+        # # new method - storing data to disk
+        # for chr_, data_by_chr in good_data_by_group:
+        #     pd.DataFrame.to_csv(data_by_chr, 'chunked_Data_' + soi + '/' + soi + ':' + str(chr_),
+        #                         sep='\t', index=False, header=True)
+
+
+        # # clear memory - does it do it's job ** ??
+        # initial_haplotype = None; good_data = None; input_file = None
+        # good_data_by_group = None; samples = None; input_data = None
+        # data_by_chr = None
+        # del initial_haplotype, good_data, input_file, good_data_by_group, samples, input_data, data_by_chr
+
+    ''' Step 01 - B: check if "bed file" and "haplotype reference" file are given.
+        - then read the "bed file" and "haplotype file" into the memory.
+        - these data will be used downstream after reading the haplotype file as "good_data" '''
+    data = pd.read_csv(input_file, sep = '\t')
+    data_header = list(data.columns)
+    pg_al_set = {al for al in data_header if al.endswith(':PG_al')}
+    pi_set = {pi for pi in data_header if pi.endswith(':PI')}
+    soi_PI_index = soi + ':PI'
+    soi_PG_index = soi + ':PG_al'
+    if not soi_PI_index in pi_set:
+        assert False, "soi pi index is not found"
+
+    if not soi_PG_index in pg_al_set:
+        assert False, "soi pg index is not found"
+
+    os.makedirs(outputdir, exist_ok=True)
+    missing_fpath = outputdir + '/' +"missingdata_" + soi + ".txt"
+
+    missing = data[(data[soi_PI_index] == '.') | (data[soi_PG_index] == '.')]
+    missing.to_csv(missing_fpath, sep= '\t', index= False, )
+    good_data = pd.concat([data,missing]).drop_duplicates(keep=False)
+
+    # check and load bed file
+    if bed_file:
+        ''' we want to extend phase state only within bed boundries.
+            - so, we merge the "input haplotype-file"  with "bed-file". '''
+        my_bed = pd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
+        my_bed['CHROM'] = my_bed['CHROM'].astype(str)  # setting CHROM column as string type ..
+        #  this is necessary because there has been problem with groupby operations downstream
+
+    else:
+        print('# Genomic bed file is not provided ... ')
+    
+    # check and load "haplotype reference panel"
+    if refhap:
+        hap_panel = pd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
+        hap_panel['CHROM'] = hap_panel['CHROM'].astype(str)  # setting CHROM as string type data
+
+        # also find the sample in refHap panel
+        hap_panel_samples = find_samples(list(hap_panel.keys()))
+
+    else:
+        hap_panel_samples = []
+        print('# Haplotype reference panel is not provided ... ')
+        print('  So, phase extension will run using the samples available in the input haplotype file. ')
+
+
+        # ''' Step 01 - C: from the input file
+        # 1) For the soi, remove/store the lines that have PI and allele value as empty (.) as "missing_data"
+        # 2) Rest of the data should have meaningful data for soi, and we store it as "good_data".
+        #    - also prepare the list of samples that will be used in phase extension.
+        # 3) Prepare a list of samples to use while computing transition matrix.
+
+
+        # 4) ** move this else where: write the first K1 block - after this we will only need to update K2 block values,
+        #    when reading k1,v1 and k2,v2 consecutive blocks as pairs. '''
+
+        # ''' store the good (meaningful) portion of the input_data as variable (Good_Data).
+        # But, write the missing data as file (** but can also be stored in a variable) '''
+        # good_data = ''   # empty string
+
+        # for lines in input_data:
+        #     if lines.startswith('CHROM'):
+        #         head = lines.rstrip('\n').split('\t')
+
+        #         # find the index positions of sample-of-interest's PI and PG_allele
+        #         soi_PI_index = head.index(soi + ':PI')
+        #         soi_PG_index = head.index(soi + ':PG_al')
+
+
+        #         # update the heading for good_data and missing_data
+        #         good_data += '\t'.join(head) + '\n'
+        #         missing_data.write('\t'.join(head) + '\n')
+
+        #         continue
+
+
+        #     ''' Now, for the soi if PI and PG are missing (i.e, represented by '.') write it into
+        #     "missing_file.txt", else store it as "good_data" '''
+        #     lines = lines.rstrip('\n').split('\t')
+        #     if len(lines) <= 1:  # to control for the last ('\n') line if present
+        #         break
+
+
+        #     # separate the lines with missing data (no "PI" or has "PI" but ambiguous SNP like "*")
+        #     if lines[soi_PI_index] == '.' or '.' in lines[soi_PG_index]:
+        #         missing_data.write('\t'.join(lines) + '\n')
+
+        #     # write the good part of the RB-phased VCF
+        #     elif lines[soi_PI_index] != '.':
+        #         good_data += '\t'.join(lines) + '\n'
+
+        #     # ** for future: this above code can be modified to include non-phased SNP variants.
+        #     # - just remove "lines[soi:PG_index]" to put SNPs with no PI index inside "good_data"
+
+        # print()
+        # print('# Filtered the lines that have data missing for sample "%s"; check the file "%s" '
+        #       %(soi, missing_data.name))
+        # print('  - Loaded read-backphased variants onto the memory')
+
+
+        # ''' Step 01 - D: Prepare the samples to use the data from. '''
+        # ''' Prepare a list of tuples of samples (PI, PG_al) from the input data and update it as needed.
+        #     - **Note: the sample list should always include the soi (sample of interest)
+        #         - this is done to include observation from soi rather than introducing a pseudo count
+        #           when transition is missing from some observation (n to m). '''
+    sample_list = find_samples(data_header)  # returns data from "input haplotype file"
+
+    # update the names in "sample_list" if other samples are requested by the user:
+    if use_sample == "" or use_sample == 'input':
+        sample_list = sample_list
+
+    # use all the samples from hapRefPanel and input samples
+    elif use_sample == 'all':
+        sample_list = sample_list + hap_panel_samples
+
+    elif use_sample == 'refHap':
+        sample_list = hap_panel_samples + [(soi + ":PI", soi +":PG_al")]  # add the self sample name to account ..
+        # .. for missing observations instead of using pseudo count
+
+    # if specific select samples are of interest, split the sample names and then prepare ..
+    # .. the list of tuples of sample "PI" and "PG_al"
+    else:
+        sample_list = use_sample.split(',')
+        sample_list = [((x + ':PI'), (x + ':PG_al')) for x in sample_list] + \
+                        [(soi + ":PI", soi +":PG_al")]
+
+
+
+    ''' Step 02: pipe the data into "pandas", then:
+        A) group the data by "contig" which helps in multiprocessing/threading.
+            A - optional: if "bed regions" are given add the bed_regions boundries as "start_end"
+        B) within each group, group again by "PI keys" of soi and then sort by
+            minimum "POS" value for each "PI key"
+        C) then pipe the data within each "PI key" for phase-extension computation.'''
+
+    ''' Step 02 - A : read good part of the data into "pandas" as dataframe.'''
+    # good_data = pd.read_table(StringIO(good_data), delimiter='\t')
+    good_data['CHROM'] = good_data['CHROM'].astype(str)  # setting CHROM as string type data # this is necessary
+    # to maintain proper groupby downstream
 
         # ** only if "good_data" is desired as text output
         #pd.DataFrame.to_csv(good_data, 'good_data_test.txt', sep='\t', header=True, index=False)
 
-        ''' Step 02 - A (add on - i) ** merge reference haplotype if provided '''
-        print()
-        if refhap:
-            # update the "good_data" (i.e, haplotype data)
-            print('Merging input haplotype data with data from the hap-reference panel')
+    ''' Step 02 - A (add on - i) ** merge reference haplotype if provided '''
+    if refhap:
+        # update the "good_data" (i.e, haplotype data)
+        print('Merging input haplotype data with data from the hap-reference panel')
 
-            good_data = pd.merge(good_data, hap_panel, on=['CHROM', 'POS'],
-                                     how='left').fillna('.')
-            good_data.sort_values(by=['CHROM', 'POS'], inplace=True)
+        good_data = pd.merge(good_data, hap_panel, on=['CHROM', 'POS'],
+                                    how='left').fillna('.')
+        good_data.sort_values(by=['CHROM', 'POS'], inplace=True)
 
-            # if haplotype and reference panel merged lines are desired
-            #pd.DataFrame.to_csv(good_data, 'hap_and_refPanel_merged.txt', sep='\t',
-                                #header=True, index=False)
-            del hap_panel
+        # if haplotype and reference panel merged lines are desired
+        #pd.DataFrame.to_csv(good_data, 'hap_and_refPanel_merged.txt', sep='\t',
+                            #header=True, index=False)
+        del hap_panel
 
-        else:
-            print('# Haplotype reference panel is not provided....\n'
-                  '  - Only using the samples in the input ("%s") data.' %(input_data.name))
-
-
-        ''' Step 02 - A (add on - ii) ** merge bed-regions if provided to limit phase extension
-                                         and group the data by "contig". '''
-        print()
-        if not bed_file:
-            # group data only at "contig" level, keep the sort as it is
-            print('# No bed file is given ... ')
-            print('  - So, grouping the haplotype file only by chromosome (contig)')
-
-            good_data_by_group = good_data.groupby('CHROM', sort=False)
-
-        elif bed_file:
-            print('# Merging the bed boundries from "%s" with the input haplotype file ... "%s" '
-                  % (bed_file, input_data.name))
-
-            # merge/intersect the "bed regions" and "haplotype file"
-            # then groupy "contig" and "bed regions" by passing it to function "merge_hap_with_bed()"
-            good_data_by_group = merge_hap_with_bed(my_bed, good_data)
-            # ** for future: we can also run multiprocessing while merging "hap file" with "bed regions"
-            del my_bed
+    else:
+        print('# Haplotype reference panel is not provided....\n'
+                '  - Only using the samples in the input ("%s") data.' %(input_file))
 
 
-        ''' Step 02 - A (**add on - iii):
-            - Write the initial haplotype data.
-            - Compute the statistics of the initial phased file for SOI if required '''
+    ''' Step 02 - A (add on - ii) ** merge bed-regions if provided to limit phase extension
+                                        and group the data by "contig". '''
+    if not bed_file:
+        # group data only at "contig" level, keep the sort as it is
+        print('# No bed file is given ... ')
+        print('  - So, grouping the haplotype file only by chromosome (contig)')
 
-        print()
-        print('# Writing initial haplotype for sample "%s" in the file "%s" '
-              %(soi, 'initial_haplotype_' + soi + '.txt'))
+        good_data_by_group = good_data.groupby('CHROM', sort=False)
 
-        # select the colums of interest
-        initial_haplotype = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]. \
-            sort_values(by=['CHROM', 'POS'])
+    elif bed_file:
+        print('# Merging the bed boundries from "%s" with the input haplotype file ... "%s" '
+                % (bed_file, input_file))
 
-        # write this initial haplotype to a file
-        pd.DataFrame.to_csv(initial_haplotype, outputdir + '/' + 'initial_haplotype_' + soi + '.txt',
-                            sep='\t', header=True, index=False)
+        # merge/intersect the "bed regions" and "haplotype file"
+        # then groupy "contig" and "bed regions" by passing it to function "merge_hap_with_bed()"
+        good_data_by_group = merge_hap_with_bed(my_bed, good_data)
+        # ** for future: we can also run multiprocessing while merging "hap file" with "bed regions"
+        del my_bed
 
 
-        if hapstats == 'yes':
-            print('  - Computing the descriptive statistics of the haplotype data before phase extension')
+    ''' Step 02 - A (**add on - iii):
+        - Write the initial haplotype data.
+        - Compute the statistics of the initial phased file for SOI if required '''
 
-            # pipe the data to a function to compute haplotype statistics
-            compute_haplotype_stats(initial_haplotype, soi, 'initial', outputdir)
-        else:
-            print('  - Proceeding to phase-extension without preparing descriptive statistics of initial haplotype state.')
+    print('# Writing initial haplotype for sample "%s" in the file "%s" '
+            %(soi, 'initial_haplotype_' + soi + '.txt'))
+
+    # select the colums of interest
+    initial_haplotype = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]. \
+        sort_values(by=['CHROM', 'POS'])
+
+    # write this initial haplotype to a file
+    initial_haplotype.to_csv(outputdir + '/' + 'initial_haplotype_' + soi + '.txt',
+                    sep='\t', header=True, index=False)
+
+
+    if hapstats == 'yes':
+        print('  - Computing the descriptive statistics of the haplotype data before phase extension')
+
+        # pipe the data to a function to compute haplotype statistics
+        compute_haplotype_stats(initial_haplotype, soi, 'initial', outputdir)
+    else:
+        print('  - Proceeding to phase-extension without preparing descriptive statistics of initial haplotype state.')
 
 
 
-        ''' Step 02 - B: - Split the data (grouped by chromosome (contig) values.
-                         - Store data in disk or memory.
-                         - Multiprocess each chunks separately '''
-        print()
-        print('# Starting multiprocessing using "%i" processes ' %(nt))
+    ''' Step 02 - B: - Split the data (grouped by chromosome (contig) values.
+                        - Store data in disk or memory.
+                        - Multiprocess each chunks separately '''
+    print()
+    print('# Starting multiprocessing using "%i" processes ' %(nt))
 
-        # ** new method: create a folder to store the data to disk (rather than memory)
-        # ** (see old method for comparison)
-        if os.path.exists('chunked_Data_' + soi):
-            shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
-        os.makedirs('chunked_Data_' + soi + '/', exist_ok=True)
-
-
-        ''' Step 02 - B (i)'''
-
-        ################### old method - ** if possible reuse this method in future.
-        # take the large dataframe that is grouped by contig and ..
-        # .. keep chunks of dataframes as as OrderedDict(list of (keys, Dataframe object))
-        #df_list = collections.OrderedDict()
-        ########################################
-
-        # new method - storing data to disk
-        for chr_, data_by_chr in good_data_by_group:
-            pd.DataFrame.to_csv(data_by_chr, 'chunked_Data_' + soi + '/' + soi + ':' + str(chr_),
-                                sep='\t', index=False, header=True)
+    # ** new method: create a folder to store the data to disk (rather than memory)
+    # ** (see old method for comparison)
+    if os.path.exists('chunked_Data_' + soi):
+        shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
+    os.makedirs('chunked_Data_' + soi + '/', exist_ok=True)
 
 
-        # clear memory - does it do it's job ** ??
-        initial_haplotype = None; good_data = None; input_file = None
-        good_data_by_group = None; samples = None; input_data = None
-        data_by_chr = None
-        del initial_haplotype, good_data, input_file, good_data_by_group, samples, input_data, data_by_chr
+    ''' Step 02 - B (i)'''
+
+    ################### old method - ** if possible reuse this method in future.
+    # take the large dataframe that is grouped by contig and ..
+    # .. keep chunks of dataframes as as OrderedDict(list of (keys, Dataframe object))
+    #df_list = collections.OrderedDict()
+    ########################################
+
+    # new method - storing data to disk
+    for chr_, data_by_chr in good_data_by_group:
+        chunked_path = 'chunked_Data_' + soi + '/' + soi + ':' + str(chr_)
+        data_by_chr.to_csv(chunked_path,sep='\t', index=False, header=True)
+
+
+    # clear memory - does it do it's job ** ??
+    initial_haplotype = None; good_data = None; input_file = None
+    good_data_by_group = None; samples = None
+    data_by_chr = None
+    del initial_haplotype, good_data, input_file, good_data_by_group, samples, data_by_chr
 
     ''' Now, pipe the procedure to next function for multiprocessing (i.e Step 02 - C) '''
     multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod)
