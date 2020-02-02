@@ -24,7 +24,7 @@ def is_same(dir1, dir2):
         # fix later by using pytest-mpl for testing plot
         if all_pngs:
             print(f'We are ignoring these plots')
-             return True
+            return True
         return False
     for subdir in compared.common_dirs:
         if not is_same(os.path.join(dir1, subdir), os.path.join(dir2, subdir)):
