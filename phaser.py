@@ -19,8 +19,6 @@ from compute_score import compute_maxLh_score, extend_phase_state
 from utils import accumulate, current_mem_usage
 
 
-
-
 def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold, num_of_hets, maxed_as, bed_file, refhap, use_sample ,hapstats, writelod, addmissingsites):
 
     '''Assign the number of process - this is the optimal position to start multiprocessing ! 
@@ -37,6 +35,8 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     pi_set = {pi for pi in data_header if pi.endswith(':PI')}
     soi_PI_index = soi + ':PI'
     soi_PG_index = soi + ':PG_al'
+
+    # check if soi is in header 
     if not soi_PI_index in pi_set:
         assert False, "soi pi index is not found"
 
@@ -770,7 +770,12 @@ def merge_hap_with_bed(my_bed, good_data):
 ''' prepare list of all available samples (index, value) in the input file
     ** note: we also control output of specific sample if user desires. '''
 def find_samples(samples):
-    # the below method preserves the order of samples.
+    """the below method preserves the order of samples.
+
+    ** Note: this returns data as:
+    sample_list = [('ms01e:PI', 'ms01e:PG_al'), ('ms02g:PI', 'ms02g:PG_al'),
+               ('ms03g:PI', 'ms03g:PG_al'), ('ms04h:PI', 'ms04h:PG_al')]
+               """
     seen = set()
     sample_list = [x.split(':')[0] for x in samples if ':' in x]
     sample_list = [x for x in sample_list if not (x in seen or seen.add(x))]
@@ -779,9 +784,6 @@ def find_samples(samples):
 
     return sample_list
 
-    # ** Note: this returns data as:
-    # sample_list = [('ms01e:PI', 'ms01e:PG_al'), ('ms02g:PI', 'ms02g:PG_al'),
-               #('ms03g:PI', 'ms03g:PG_al'), ('ms04h:PI', 'ms04h:PG_al')]
 
 
 
