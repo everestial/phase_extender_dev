@@ -106,4 +106,4 @@ phasenv/
 .vscode/
 
 .pytest_cache
-outdir/
+tempdir/
