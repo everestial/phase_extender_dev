@@ -195,9 +195,9 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
 
     # ** new method: create a folder to store the data to disk (rather than memory)
     # ** (see old method for comparison)
-    if os.path.exists('chunked_Data_' + soi):
-        shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
-    os.makedirs('chunked_Data_' + soi + '/', exist_ok=True)
+    # if os.path.exists('chunked_Data_' + soi):
+    #     shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
+    # os.makedirs('chunked_Data_' + soi + '/', exist_ok=True)
 
 
     ''' Step 02 - B (i)'''
@@ -208,28 +208,28 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     #df_list = collections.OrderedDict()
     ########################################
 
-    # new method - storing data to disk
-    for chr_, data_by_chr in good_data_by_group:
-        chunked_path = 'chunked_Data_' + soi + '/' + soi + ':' + str(chr_)
-        data_by_chr.to_csv(chunked_path,sep='\t', index=False, header=True)
+    # # new method - storing data to disk
+    # for chr_, data_by_chr in good_data_by_group:
+    #     chunked_path = 'chunked_Data_' + soi + '/' + soi + ':' + str(chr_)
+    #     data_by_chr.to_csv(chunked_path,sep='\t', index=False, header=True)
 
 
     # clear memory - does it do it's job ** ??
-    initial_haplotype = None; good_data = None; input_file = None
-    good_data_by_group = None; samples = None
-    data_by_chr = None
-    del initial_haplotype, good_data, input_file, good_data_by_group, samples, data_by_chr
+    # initial_haplotype = None; good_data = None; input_file = None
+    # # good_data_by_group = None; samples = None
+    # data_by_chr = None
+    # del initial_haplotype, good_data, input_file, good_data_by_group, samples, data_by_chr
 
     ''' Now, pipe the procedure to next function for multiprocessing (i.e Step 02 - C) '''
-    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod)
+    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_data_by_group)
 
     # remove the chunked data folder ** (this can be retained if need be)
-    shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
+    # shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
 
     print('End :)')
 
 
-def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod):
+def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_df_by_grp):
 
     print()
     ''' Step 02 - C: Start, multiprocessing/threading - process each contig separately. '''
@@ -237,8 +237,8 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_fi
         function "groupby_and_read()" to run phase extension.
         - After the data is passed into that function; the steps (02-C to 9) are covered there'''
 
-    path='chunked_Data_' + soi   # create a temp folder
-    file_path = [(item, sample_list) for item in list(os.path.join(path, part) for part in os.listdir(path))]
+    # path='chunked_Data_' + soi   # create a temp folder
+    # file_path = [(item, sample_list) for item in list(os.path.join(path, part) for part in os.listdir(path))]
     # print(file_path)
     # breakpoint()
     # file_path = [item for item in list(os.path.join(path, part) for part in os.listdir(path))]
@@ -246,9 +246,11 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_fi
     ## ** to do: Add "sort" method in "file_path" to read data in order. This way we can save ..
       # time/memory while doing sorting within pandas dataframe.
       # This sort method is available in "phase-Stitcher"
+    df_list = (good_df_by_grp.get_group(x) for x in good_df_by_grp.groups)
+    
     partial_group = partial(groupby_and_read, bed_file =bed_file, soi = soi,snp_threshold = snp_threshold,sample_list= sample_list, num_of_hets= num_of_hets, lods_cut_off= lods_cut_off, maxed_as= maxed_as, writelod = writelod )
 
-    result = pool.imap(partial_group, file_path)
+    result = pool.imap(partial_group, df_list)
     # result = pool.starmap( groupby_and_read, *(file_path, use_bed, soi, snp_threshold, sample_list, num_of_hets, lods_cut_off, maxed_as) )
     pool.close()
     pool.join()
@@ -311,18 +313,20 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_fi
 
 
 def groupby_and_read(file_path, bed_file, soi, snp_threshold, sample_list, num_of_hets, lods_cut_off, maxed_as, writelod):
-    good_data_by_contig = open(file_path[0], 'r')
-    chr_ = good_data_by_contig.name.split(':')[-1]
-    sample_list = file_path[1]
-    contigs_group = pd.read_csv(StringIO(good_data_by_contig.read()), sep='\t')
+    # good_data_by_contig = open(file_path[0], 'r')
+    # chr_ = good_data_by_contig.name.split(':')[-1]
+    # sample_list = file_path[1]
+    # contigs_group = pd.read_csv(StringIO(good_data_by_contig.read()), sep='\t')
+    contigs_group = file_path
+    chr_ = contigs_group['CHROM'].values[0]
 
 
     ''' After doing groupby (by chromosome) we pipe in data, for each chromosome '''
 
     time_chr = time.time()  # to time the process in each chromosome
-    print('## Extending haplotype blocks in chromosome (contig) %s' %(chr_))
+    # print('## Extending haplotype blocks in chromosome (contig) %s' %(chr_))
 
-    del good_data_by_contig
+    # del good_data_by_contig
 
 
     # if phase extension is to be limited to provided bed-regions
