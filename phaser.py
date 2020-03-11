@@ -13,6 +13,7 @@ from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
 
 from hapstats import compute_haplotype_stats
 from compute_score import compute_maxLh_score, extend_phase_state
@@ -29,7 +30,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     ''' Step 01: Read the input file and and prepare two files as output '''
     # a) One output file contains extended phase-states for the sample of interest (soi)
     # b) another output file contains the lines that have missing data for sample of interest
-    data = pd.read_csv(input_file, sep = '\t')
+    data = dd.read_csv(input_file, sep = '\t')
     data_header = list(data.columns)
     pg_al_set = {al for al in data_header if al.endswith(':PG_al')}
     pi_set = {pi for pi in data_header if pi.endswith(':PI')}
@@ -48,7 +49,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
 
     missing = data[(data[soi_PI_index] == '.') | (data[soi_PG_index] == '.')]
     missing.to_csv(missing_fpath, sep= '\t', index= False, )
-    good_data = pd.concat([data,missing]).drop_duplicates(keep=False)
+    good_data = data[(data[soi_PI_index] != '.') | (data[soi_PG_index] != '.')]
 
    
     ''' Step 01 - B: check if "bed file" and "haplotype reference" file are given.
@@ -59,7 +60,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     if bed_file:
         ''' we want to extend phase state only within bed boundries.
             - so, we merge the "input haplotype-file"  with "bed-file". '''
-        my_bed = pd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
+        my_bed = dd.read_csv(bed_file, sep='\t', names=['CHROM', 'start', 'end'])
         my_bed['CHROM'] = my_bed['CHROM'].astype(str)  # setting CHROM column as string type ..
         #  this is necessary because there has been problem with groupby operations downstream
 
@@ -68,7 +69,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     
     # check and load "haplotype reference panel"
     if refhap:
-        hap_panel = pd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
+        hap_panel = dd.read_csv(refhap, sep='\t').drop(['REF', 'ALT'], axis=1)
         hap_panel['CHROM'] = hap_panel['CHROM'].astype(str)  # setting CHROM as string type data
 
         # also find the sample in refHap panel
@@ -127,7 +128,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
         # update the "good_data" (i.e, haplotype data)
         print('Merging input haplotype data with data from the hap-reference panel')
 
-        good_data = pd.merge(good_data, hap_panel, on=['CHROM', 'POS'],
+        good_data = dd.merge(good_data, hap_panel, on=['CHROM', 'POS'],
                                     how='left').fillna('.')
         good_data.sort_values(by=['CHROM', 'POS'], inplace=True)
 
@@ -148,7 +149,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
         print('# No bed file is given ... ')
         print('  - So, grouping the haplotype file only by chromosome (contig)')
 
-        good_data_by_group = good_data.groupby('CHROM', sort=False)
+        good_data_by_group = good_data.groupby('CHROM')
 
     elif bed_file:
         print('# Merging the bed boundries from "%s" with the input haplotype file ... "%s" '
@@ -160,6 +161,9 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
         # ** for future: we can also run multiprocessing while merging "hap file" with "bed regions"
         del my_bed
 
+    ch_vals = [x for x in good_data['CHROM'].unique()]
+    
+
 
     ''' Step 02 - A (**add on - iii):
         - Write the initial haplotype data.
@@ -169,8 +173,11 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
             %(soi, 'initial_haplotype_' + soi + '.txt'))
 
     # select the colums of interest
-    initial_haplotype = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]. \
-        sort_values(by=['CHROM', 'POS'])
+    # initial_haplotype = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]. \
+    #     sort_values(by=['CHROM', 'POS'])
+    initial_haplotype_dd = good_data[['CHROM', 'POS', 'REF', 'all-alleles', soi + ':PI', soi + ':PG_al']]
+    initial_haplotype = initial_haplotype_dd.compute().sort_values(by = ['CHROM', 'POS'])
+
 
     # write this initial haplotype to a file
     initial_haplotype.to_csv(outputdir + '/' + 'initial_haplotype_' + soi + '.txt',
@@ -221,7 +228,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     # del initial_haplotype, good_data, input_file, good_data_by_group, samples, data_by_chr
 
     ''' Now, pipe the procedure to next function for multiprocessing (i.e Step 02 - C) '''
-    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_data_by_group)
+    multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_data_by_group, ch_vals)
 
     # remove the chunked data folder ** (this can be retained if need be)
     # shutil.rmtree('chunked_Data_' + soi, ignore_errors=False, onerror=None)
@@ -229,7 +236,7 @@ def phase_converter(soi, outputdir, nt, input_file, lods_cut_off, snp_threshold,
     print('End :)')
 
 
-def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_df_by_grp):
+def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_file, snp_threshold, num_of_hets, lods_cut_off,maxed_as, writelod, good_df_by_grp, ch_vals):
 
     print()
     ''' Step 02 - C: Start, multiprocessing/threading - process each contig separately. '''
@@ -246,7 +253,10 @@ def multiproc(sample_list, pool, hapstats,soi,outputdir, addmissingsites, bed_fi
     ## ** to do: Add "sort" method in "file_path" to read data in order. This way we can save ..
       # time/memory while doing sorting within pandas dataframe.
       # This sort method is available in "phase-Stitcher"
-    df_list = (good_df_by_grp.get_group(x) for x in good_df_by_grp.groups)
+
+    # ch_vals = [x for x in good_df_by_grp.unique()]
+    dd_list = (good_df_by_grp.get_group(x) for x in ch_vals)
+    df_list = (df.compute() for  df in dd_list)
     
     partial_group = partial(groupby_and_read, bed_file =bed_file, soi = soi,snp_threshold = snp_threshold,sample_list= sample_list, num_of_hets= num_of_hets, lods_cut_off= lods_cut_off, maxed_as= maxed_as, writelod = writelod )
 
@@ -705,6 +715,8 @@ def process_consecutive_blocks(contigs_group, soi, chr_, snp_threshold,
 def merge_hap_with_bed(my_bed, good_data):
 
     print('Extracting bed regions and position of the haplotype file ... ')
+    my_bed = my_bed.compute()
+    good_data = good_data.compute()
 
     c1 = my_bed.CHROM.values
     s1 = my_bed.start.values
