@@ -38,3 +38,4 @@ style==1.1.0
 update==0.0.1
 wcwidth==0.1.8
 zipp==2.1.0
+dask[complete]==2.10.0
